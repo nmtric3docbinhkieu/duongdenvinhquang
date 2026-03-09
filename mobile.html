@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thí sinh - Đường Đến Vinh Quang</title>
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        :root {
+            --la-sen: #2E7D32; 
+            --la-sen-non: #81C784; 
+            --vang-nhuy: #FFD700; 
+            --hong-sen: #E91E63;
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.15);
+            --shadow-md: 0 8px 16px rgba(0,0,0,0.2);
+            --shadow-lg: 0 15px 35px rgba(0,0,0,0.3);
+        }
+        body {
+            margin: 0;
+            padding: 12px;
+            font-family: 'Segoe UI', 'Tahoma', 'Geneva', sans-serif;
+            background: linear-gradient(135deg, var(--la-sen) 0%, #1B5E20 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--vang-nhuy);
+        }
+        .header h1 {
+            margin: 0;
+            font-size: clamp(20px, 5vw, 28px);
+            color: var(--vang-nhuy);
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+        .player-info {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            text-align: center;
+            border: 2px solid rgba(129, 199, 132, 0.5);
+            box-shadow: var(--shadow-md);
+        }
+        .player-info h2 {
+            margin: 0;
+            font-size: clamp(18px, 4vw, 22px);
+            color: var(--vang-nhuy);
+        }
+        .question-box {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-radius: 15px;
+            margin-bottom: 15px;
+            flex-grow: 1;
+            border: 3px solid var(--vang-nhuy);
+            font-size: clamp(16px, 3vw, 20px);
+            line-height: 1.6;
+            overflow-y: auto;
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.5), var(--shadow-md);
+            transform: perspective(1000px);
+        }
+        .timer {
+            font-size: clamp(32px, 12vw, 56px);
+            font-weight: bold;
+            text-align: center;
+            color: var(--vang-nhuy);
+            margin: 12px 0;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 12px;
+            border: 2px solid var(--hong-sen);
+            box-shadow: 0 0 20px rgba(233, 30, 99, 0.5), var(--shadow-md);
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+        .answer-input {
+            width: 100%;
+            padding: 12px;
+            font-size: clamp(16px, 4vw, 18px);
+            border: 2px solid var(--vang-nhuy);
+            border-radius: 10px;
+            margin-bottom: 12px;
+            text-align: center;
+            background: white;
+            color: var(--la-sen);
+            font-weight: bold;
+            text-transform: uppercase;
+            box-shadow: var(--shadow-md);
+            transition: all 0.3s;
+        }
+        .answer-input:focus {
+            outline: none;
+            border-color: var(--la-sen);
+            box-shadow: 0 0 15px rgba(129, 199, 132, 0.5), var(--shadow-md);
+            transform: scale(1.02);
+        }
+        .buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .btn {
+            padding: clamp(10px, 3vw, 15px);
+            border: none;
+            border-radius: 10px;
+            font-size: clamp(14px, 3vw, 16px);
+            font-weight: bold;
+            cursor: pointer;
+            color: white;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: var(--shadow-md);
+            transform: scale(1);
+            position: relative;
+            overflow: hidden;
+        }
+        .btn:active {
+            transform: scale(0.95);
+        }
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.2);
+            transition: left 0.3s;
+        }
+        .btn:active::before {
+            left: 100%;
+        }
+        .btn-send {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            grid-column: span 2;
+        }
+        .btn-send:disabled {
+            background: #999;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        .btn-clear {
+            background: linear-gradient(135deg, #FF9800, #FB8C00);
+        }
+        .btn-backspace {
+            background: linear-gradient(135deg, #2196F3, #1976D2);
+        }
+        .status {
+            text-align: center;
+            padding: 8px;
+            margin-top: 8px;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: clamp(12px, 3vw, 14px);
+            transition: all 0.3s;
+        }
+        .connected {
+            background: rgba(76, 175, 80, 0.3);
+            color: #C8E6C9;
+            border: 1px solid #4CAF50;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.3);
+        }
+        .disconnected {
+            background: rgba(244, 67, 54, 0.3);
+            color: #FFCDD2;
+            border: 1px solid #F44336;
+            box-shadow: 0 0 10px rgba(244, 67, 54, 0.3);
+        }
+        .round-info {
+            background: rgba(233, 30, 99, 0.2);
+            backdrop-filter: blur(10px);
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            text-align: center;
+            font-weight: bold;
+            border: 2px solid var(--hong-sen);
+            font-size: clamp(14px, 3vw, 16px);
+            box-shadow: 0 0 15px rgba(233, 30, 99, 0.3);
+        }
+        .instructions {
+            background: rgba(255, 215, 0, 0.15);
+            backdrop-filter: blur(10px);
+            padding: 10px;
+            border-radius: 10px;
+            margin-top: 12px;
+            font-size: clamp(12px, 2.5vw, 14px);
+            text-align: center;
+            border: 1px solid var(--vang-nhuy);
+            box-shadow: var(--shadow-sm);
+        }
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 15px;
+            background: rgba(0,0,0,0.9);
+            color: white;
+            padding: 12px 15px;
+            border-radius: 8px;
+            z-index: 1000;
+            font-weight: bold;
+            border-left: 4px solid var(--vang-nhuy);
+            max-width: 85%;
+            box-shadow: var(--shadow-lg);
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(400px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            .header {
+                margin-bottom: 12px;
+            }
+            .buttons {
+                gap: 6px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📱 THÍ SINH</h1>
+        <div class="round-info" id="roundInfo">Chờ câu hỏi...</div>
+    </div>
+
+    <div class="player-info">
+        <h2 id="playerName">Đang kết nối...</h2>
+        <div id="connectionStatus" class="status disconnected">🔴 Chưa kết nối</div>
+    </div>
+
+    <div class="timer" id="timerDisplay">--</div>
+
+    <div class="question-box" id="questionText">
+        Chờ MC bắt đầu câu hỏi...
+    </div>
+
+    <input type="text" 
+           class="answer-input" 
+           id="answerInput" 
+           placeholder="Nhập đáp án tại đây..."
+           autocomplete="off"
+           maxlength="50">
+
+    <div class="buttons">
+        <button class="btn btn-clear" onclick="clearAnswer()">XÓA</button>
+        <button class="btn btn-backspace" onclick="backspace()">← XÓA KÝ TỰ</button>
+        <button class="btn btn-send" id="sendBtn" onclick="sendAnswer()" disabled>GỬI ĐÁP ÁN</button>
+    </div>
+
+    <div class="instructions">
+        💡 Nhập đáp án và nhấn GỬI. Chữ sẽ tự động in hoa.
+    </div>
+
+    <script>
+        // Lấy ID thí sinh từ URL (ví dụ: mobile.html?player=F1)
+        const urlParams = new URLSearchParams(window.location.search);
+        const playerId = urlParams.get('player') || 'F1';
+        const playerName = `Thí sinh ${playerId.substring(1)}`;
+        
+        let socket = null;
+        let currentRound = null;
+        let timeLeft = 0;
+        let timerInterval = null;
+        let hasAnswered = false;
+
+        // Khởi tạo
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('playerName').textContent = playerName;
+            connectSocket();
+            setupInputEvents();
+        });
+
+        // Kết nối Socket.IO
+        function connectSocket() {
+            // Lấy địa chỉ server - FIXED cho đúng port 3000
+            const serverUrl = window.location.protocol + '//' + window.location.hostname + ':3000';
+            
+            console.log('🔗 Đang kết nối tới:', serverUrl);
+            
+            socket = io(serverUrl, {
+                reconnection: true,
+                reconnectionAttempts: 5,
+                reconnectionDelay: 1000
+            });
+            
+            socket.on('connect', () => {
+                console.log('✅ Đã kết nối với server, Socket ID:', socket.id);
+                updateStatus(true);
+                
+                // Gửi thông tin thí sinh lên server - QUAN TRỌNG
+                socket.emit('register_player', {
+                    playerId: playerId,
+                    playerName: playerName
+                });
+            });
+
+            // Nhận xác nhận đăng ký thành công
+            socket.on('registration_success', (data) => {
+                console.log('🎉 Đăng ký thành công:', data);
+                document.getElementById('playerName').textContent = `${playerName} (${playerId})`;
+                showNotification('✅ Đăng ký thành công!');
+            });
+
+            // Nhận câu hỏi từ MC
+            socket.on('question_info', (data) => {
+                console.log('📥 Nhận câu hỏi:', data);
+                currentRound = data.round;
+                document.getElementById('questionText').textContent = data.question;
+                document.getElementById('roundInfo').textContent = `Vòng: ${data.round.toUpperCase()}`;
+                
+                if (data.time > 0) {
+                    startTimer(data.time);
+                }
+                
+                // Reset trạng thái
+                hasAnswered = false;
+                document.getElementById('answerInput').value = '';
+                document.getElementById('answerInput').disabled = false;
+                document.getElementById('sendBtn').disabled = false;
+                document.getElementById('answerInput').focus();
+                
+                // Thông báo
+                showNotification('📝 Câu hỏi đã nhận!');
+            });
+
+            // Nhận lệnh bắt đầu vòng
+            socket.on('start_round', (data) => {
+                console.log('🚀 Bắt đầu vòng:', data);
+                currentRound = data.round;
+                startTimer(data.duration);
+                showNotification('⏱️ Bắt đầu tính giờ!');
+            });
+
+            // Nhận lệnh kết thúc vòng
+            socket.on('end_round', () => {
+                console.log('⏹️ Kết thúc vòng');
+                stopTimer();
+                document.getElementById('answerInput').disabled = true;
+                document.getElementById('sendBtn').disabled = true;
+                showNotification('⏰ Hết giờ!');
+            });
+
+            socket.on('disconnect', () => {
+                console.log('❌ Mất kết nối với server');
+                updateStatus(false);
+                stopTimer();
+                showNotification('🔴 Mất kết nối server');
+            });
+
+            // Nhận phản hồi khi gửi đáp án thành công
+            socket.on('answer_received', (data) => {
+                console.log('✅ Đã gửi đáp án:', data);
+                showNotification(`✅ Đã gửi: ${data.answer}`);
+                hasAnswered = true;
+                document.getElementById('sendBtn').disabled = true;
+                document.getElementById('answerInput').disabled = true;
+            });
+
+            socket.on('error', (error) => {
+                console.error('Lỗi:', error);
+                showNotification(`❌ Lỗi: ${error.message || error}`);
+            });
+        }
+
+        // Cập nhật trạng thái kết nối
+        function updateStatus(connected) {
+            const statusDiv = document.getElementById('connectionStatus');
+            if (connected) {
+                statusDiv.textContent = '🟢 Đã kết nối';
+                statusDiv.className = 'status connected';
+            } else {
+                statusDiv.textContent = '🔴 Mất kết nối';
+                statusDiv.className = 'status disconnected';
+            }
+        }
+
+        // QUẢN LÝ ĐỒNG HỒ ĐẾM NGƯỢC - FIXED HOÀN TOÀN
+       // QUẢN LÝ ĐỒNG HỒ ĐẾM NGƯỢC - PHIÊN BẢN FIXED 100%
+function startTimer(seconds) {
+    stopTimer();
+    timeLeft = seconds;
+    updateTimerDisplay();
+    
+    timerInterval = setInterval(() => {
+        // GIẢM THỜI GIAN VÀ CẬP NHẬT NGAY
+        timeLeft--;
+        updateTimerDisplay();
+        
+        // NẾU ĐÃ HẾT GIỜ
+        if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            timeLeft = 0;
+            updateTimerDisplay(); // CẬP NHẬT LẦN CUỐI
+            document.getElementById('answerInput').disabled = true;
+            document.getElementById('sendBtn').disabled = true;
+            showNotification('⏰ Hết giờ!');
+        }
+    }, 1000);
+}
+
+function stopTimer() {
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
+}
+
+// CẬP NHẬT HIỂN THỊ ĐỒNG HỒ - ĐƠN GIẢN HÓA
+function updateTimerDisplay() {
+    const timerDisplay = document.getElementById('timerDisplay');
+    
+    if (timeLeft >= 0) {
+        // LUÔN HIỂN THỊ SỐ (kể cả 0)
+        timerDisplay.textContent = timeLeft;
+        timerDisplay.style.color = timeLeft <= 10 ? '#FF5252' : '#FFD700';
+    } else {
+        timerDisplay.textContent = '--';
+        timerDisplay.style.color = '#FFD700';
+    }
+}
+
+
+// Gửi đáp án
+        function sendAnswer() {
+            const answerInput = document.getElementById('answerInput');
+            const answer = answerInput.value.trim().toUpperCase();
+            
+            if (!answer) {
+                showNotification('❌ Vui lòng nhập đáp án!');
+                return;
+            }
+            
+            if (!socket || !socket.connected) {
+                showNotification('❌ Chưa kết nối với máy chủ!');
+                return;
+            }
+            
+            if (hasAnswered) {
+                showNotification('⚠️ Bạn đã gửi đáp án rồi!');
+                return;
+            }
+            
+            // Gửi đáp án lên server
+            socket.emit('player_answer', {
+                playerId: playerId,
+                playerName: playerName,
+                answer: answer,
+                round: currentRound || 'unknown',
+                timestamp: new Date().toISOString()
+            });
+            
+            console.log(`📤 Gửi đáp án: ${answer}`);
+        }
+
+        // Hiển thị thông báo
+        function showNotification(message) {
+            // Tạo thông báo tạm thời
+            const notification = document.createElement('div');
+            notification.textContent = message;
+            notification.className = 'notification';
+            
+            // Tự động ẩn sau 3 giây
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 3000);
+            
+            document.body.appendChild(notification);
+        }
+
+        // Xử lý nhập liệu
+        function setupInputEvents() {
+            const input = document.getElementById('answerInput');
+            
+            // Tự động chuyển thành chữ hoa
+            input.addEventListener('input', function() {
+                this.value = this.value.toUpperCase();
+            });
+            
+            // Gửi bằng phím Enter
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendAnswer();
+                }
+            });
+        }
+
+        function clearAnswer() {
+            document.getElementById('answerInput').value = '';
+            document.getElementById('answerInput').focus();
+            showNotification('🗑️ Đã xóa đáp án');
+        }
+
+        function backspace() {
+            const input = document.getElementById('answerInput');
+            input.value = input.value.slice(0, -1);
+            input.focus();
+        }
+
+        // Phím tắt
+        document.addEventListener('keydown', function(e) {
+            // ESC để xóa toàn bộ
+            if (e.key === 'Escape') {
+                clearAnswer();
+            }
+        });
+
+        // Tự động focus vào ô nhập khi trang load
+        setTimeout(() => {
+            const input = document.getElementById('answerInput');
+            if (input) {
+                input.focus();
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

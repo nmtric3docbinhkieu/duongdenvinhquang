@@ -1,0 +1,31 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Chạy server (Node)",
+            "program": "${workspaceFolder}/server.js",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "chrome",
+            "request": "launch",
+            "name": "Mở Chrome (localhost)",
+            "url": "http://localhost:3000",
+            "webRoot": "${workspaceFolder}"
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Start Debugging (Server + Chrome)",
+            "program": "${workspaceFolder}/server.js",
+            "cwd": "${workspaceFolder}",
+            "serverReadyAction": {
+                "pattern": "Server đang chạy tại",
+                "uriFormat": "http://localhost:3000",
+                "action": "debugWithChrome"
+            }
+        }
+    ]
+}

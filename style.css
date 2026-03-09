@@ -1,0 +1,11 @@
+/* style.css - Giao diện CSS tách riêng */
+:root {
+    --la-sen: #2E7D32;
+    --la-sen-non: #81C784;
+    --vang-nhuy: #FFD700;
+    --hong-sen: #E91E63;
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.15);
+    --shadow-md: 0 8px 16px rgba(0,0,0,0.2);
+    --shadow-lg: 0 15px 35px rgba(0,0,0,0.3);
+}
+/* ... (copy toàn bộ CSS từ index.html vào đây) ... */

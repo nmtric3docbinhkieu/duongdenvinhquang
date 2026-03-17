@@ -1145,7 +1145,7 @@
                         <div class="option-content">
                             <div class="option-title">📝 Bộ câu hỏi tự soạn</div>
                             <div class="option-description">
-                                Sử dụng khi không có mạng - Có sẵn 40 câu hỏi chất lượng
+                                Sử dụng khi không có mạng - Có sẵn bộ câu hỏi chất lượng
                             </div>
                         </div>
                     </label>
@@ -1629,14 +1629,13 @@ async function initializeQuestions(source) {
     
     // Nếu chọn AI nhưng chưa có API Key
     if (!aiApiKey) {
-        alert("⚠️ Bạn chọn 'Bộ câu hỏi tự động' nhưng chưa cấu hình API Key.\n\n📋 HƯỚNG DẪN:\n1. Vào https://makersuite.google.com/app/apikey\n2. Tạo API Key miễn phí\n3. Quay lại nhập key vào ô bên dưới");
-        
+        alert("⚠️ Bạn chọn 'Bộ câu hỏi tự động' nhưng chưa cấu hình API Key.\n\n📋 HƯỚNG DẪN:\n1. Vào https://console.groq.com/keys\n2. Đăng ký tài khoản Groq (miễn phí, không cần thẻ)\n3. Tạo API Key mới\n4. Quay lại nhập key vào ô bên dưới");
         // Hiển thị ô nhập key
-        const key = prompt("🔑 Nhập Google Gemini API Key (để trống nếu muốn dùng bộ tự soạn):", "");
+        const key = prompt("🔑 Nhập Groq API Key (để trống nếu muốn dùng bộ tự soạn):", "");
         if (key && key.trim() !== '') {
             aiApiKey = key.trim();
             // Lưu để lần sau không phải nhập lại
-            try { localStorage.setItem('gemini_api_key', aiApiKey); } catch (e) {}
+            try { localStorage.setItem('groq_api_key', aiApiKey); } catch (e) {}
             // Thử lại với key mới
             return initializeQuestions('ai');
         } else {
@@ -1657,7 +1656,7 @@ async function initializeQuestions(source) {
     
     try {
         // Tạo bộ câu hỏi từ AI
-        const aiQuestions = await generateAIGoogleGemini();
+        const aiQuestions = await generateAIGroqLlama3();
         
         if (aiQuestions && Object.keys(aiQuestions).length === 4) {
             window.allData = aiQuestions;
@@ -1705,11 +1704,11 @@ function saveAPIKey() {
     const key = document.getElementById('api-key-input').value.trim();
     if (key) {
         aiApiKey = key;
-        localStorage.setItem('gemini_api_key', key);
-        alert('✅ Đã lưu API Key thành công!');
+        localStorage.setItem('groq_api_key', key);
+        alert('✅ Đã lưu Groq API Key thành công!');
         hideAPIKeyConfig();
     } else {
-        alert('⚠️ Vui lòng nhập API Key');
+        alert('⚠️ Vui lòng nhập Groq API Key');
     }
 }
 
@@ -1759,73 +1758,42 @@ function extractFirstJsonObject(text) {
     return null;
 }
 
-async function generateAIGoogleGemini() {
-    const prompt = `Hãy tạo 40 câu hỏi trắc nghiệm cho học sinh THPT (lớp 10,11,12) theo chương trình GDPT 2018.
-
-YÊU CẦU:
-1. Chia thành 4 bộ đề, mỗi bộ 10 câu
-2. Mỗi câu: câu hỏi + 4 đáp án + đáp án đúng
-3. Phạm vi kiến thức:
-   - Ngữ văn, Toán, Tiếng Anh
-   - Lịch sử, Địa lí, GDCD
-   - Vật lí, Hóa học, Sinh học
-   - GDTC, GDQPAN, Nghệ thuật
-   - Kiến thức tổng hợp
-
-4. Định dạng JSON:
-{
-  "1": [{"q": "Câu hỏi?", "a": "Đáp án đúng"}],
-  "2": [...],
-  "3": [...],
-  "4": [...]
-}
-
-5. Mỗi bộ đề phải đa dạng môn học
-6. Độ khó: trung bình
-
-QUAN TRỌNG: Chỉ trả về JSON thuần đúng định dạng, không kèm giải thích, không markdown, không \`\`\`.`;
-
+// Hàm gọi Groq API (Llama 3)
+async function generateAIGroqLlama3() {
+    const prompt = `Hãy tạo 40 câu hỏi trắc nghiệm cho học sinh THPT (lớp 10,11,12) theo chương trình GDPT 2018.\n\nYÊU CẦU:\n1. Chia thành 4 bộ đề, mỗi bộ 10 câu\n2. Mỗi câu: câu hỏi + 4 đáp án + đáp án đúng\n3. Phạm vi kiến thức:\n   - Ngữ văn, Toán, Tiếng Anh\n   - Lịch sử, Địa lí, GDCD\n   - Vật lí, Hóa học, Sinh học\n   - GDTC, GDQPAN, Nghệ thuật\n   - Kiến thức tổng hợp\n\n4. Định dạng JSON:\n{\n  "1": [{"q": "Câu hỏi?", "a": "Đáp án đúng"}],\n  "2": [...],\n  "3": [...],\n  "4": [...]\n}\n\n5. Mỗi bộ đề phải đa dạng môn học\n6. Độ khó: trung bình\n\nQUAN TRỌNG: Chỉ trả về JSON thuần đúng định dạng, không kèm giải thích, không markdown, không \`\`\`.`;
     try {
         if (!aiApiKey) throw new Error("Chưa có API Key");
-
-        // Dùng model hợp lệ cho API v1beta (xem danh sách tại https://ai.google.dev/api/models)
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(aiApiKey)}`, {
-            method: 'POST',
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
             headers: {
-                'Content-Type': 'application/json'
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${aiApiKey}`
             },
             body: JSON.stringify({
-                contents: [{
-                    parts: [{
-                        text: prompt
-                    }]
-                }],
-                generationConfig: {
-                    temperature: 0.7,
-                    maxOutputTokens: 4000
-                }
+                model: "llama3-8b-8192",
+                messages: [
+                    { role: "system", content: "Bạn là một trợ lý AI tạo bộ đề trắc nghiệm cho học sinh Việt Nam." },
+                    { role: "user", content: prompt }
+                ],
+                temperature: 0.7,
+                max_tokens: 4000
             })
         });
-
         const data = await response.json().catch(() => ({}));
-
         if (!response.ok) {
             const message = data?.error?.message || `HTTP ${response.status}`;
             throw new Error(message);
         }
-
-        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        const text = data?.choices?.[0]?.message?.content;
         if (!text) {
-            throw new Error("Gemini không trả về nội dung hợp lệ (thiếu candidates/content).");
+            throw new Error("Groq không trả về nội dung hợp lệ (thiếu choices/message/content).");
         }
-        
         // Trích xuất JSON từ kết quả
         const jsonStr = extractFirstJsonObject(text);
-        if (!jsonStr) throw new Error("Không trích xuất được JSON từ phản hồi của Gemini.");
+        if (!jsonStr) throw new Error("Không trích xuất được JSON từ phản hồi của Groq.");
         return JSON.parse(jsonStr);
-        
     } catch (error) {
-        console.error("Lỗi kết nối Gemini:", error);
+        console.error("Lỗi kết nối Groq:", error);
         throw error;
     }
 }
@@ -1837,7 +1805,12 @@ QUAN TRỌNG: Chỉ trả về JSON thuần đúng định dạng, không kèm g
 
 // THÊM 2 DÒNG NÀY ↓
 let questionSource = 'ai'; // 'ai' hoặc 'manual'
-let aiApiKey = ''; // Bạn sẽ nhập key sau
+let aiApiKey = '';
+// Tải key từ localStorage nếu có
+(function() {
+    const savedKey = localStorage.getItem('groq_api_key');
+    if (savedKey) aiApiKey = savedKey;
+})();
         
         // BIẾN TOÀN CỤC CHO VÒNG VINH QUANG
         let vqCurrentPlayer = 0;
@@ -2187,22 +2160,27 @@ let lastPlayedSecondXP = -1;  // RIÊNG cho Xuất Phát
 
         // ==================== VÒNG 1: XUẤT PHÁT ====================
         function showXuatPhatMenu() { 
-            showS('screen-packs'); 
-            document.getElementById('turn-info').innerText = "Lượt thi của: " + players[curP].name;
-            
-            // QUAN TRỌNG: Hiện lại TẤT CẢ các nút bộ câu hỏi, rồi ẩn những bộ đã dùng
-            for(let i=1; i<=4; i++) {
-                let btn = document.getElementById('p-btn-'+i);
-                // Hiện tất cả
-                btn.classList.remove('hidden');
-                // Sau đó ẩn những bộ đã dùng
-                if (usedPacks.includes(i)) {
-                    btn.classList.add('hidden');
-                }
-            }
+    console.log(`=== SHOW XUAT PHAT MENU ===`);
+    console.log(`curP hiện tại: ${curP} - ${players[curP]?.name}`);
+    showS('screen-packs'); 
+    document.getElementById('turn-info').innerText = "Lượt thi của: " + players[curP].name;
+    
+    // QUAN TRỌNG: Hiện lại TẤT CẢ các nút bộ câu hỏi, rồi ẩn những bộ đã dùng
+    for(let i=1; i<=4; i++) {
+        let btn = document.getElementById('p-btn-'+i);
+        // Hiện tất cả
+        btn.classList.remove('hidden');
+        // Sau đó ẩn những bộ đã dùng
+        if (usedPacks.includes(i)) {
+            btn.classList.add('hidden');
         }
+    }
+}
 
         function startQuiz(n) { 
+            console.log(`=== START QUIZ CALLED ===`);
+            console.log(`Bộ đề: ${n}, curP hiện tại: ${curP} - ${players[curP]?.name}`);
+            
             // Thêm bộ đề này vào danh sách đã dùng
             if (!usedPacks.includes(n)) {
                 usedPacks.push(n);
@@ -2237,7 +2215,11 @@ let lastPlayedSecondXP = -1;  // RIÊNG cho Xuất Phát
 
         function answer(isC) { 
             document.getElementById('a-text-xp').innerText = "ĐÁP ÁN: " + pack[curQ].a;
-            if(isC) upS(curP, 10); 
+            if(isC) {
+                // Đảm bảo cộng điểm cho người chơi hiện tại
+                console.log(`Cộng điểm cho thí sinh ${curP}: ${players[curP].name}`);
+                upS(curP, 10); 
+            }
             setTimeout(() => { 
                 curQ++; 
                 loadQ(); 
@@ -2282,11 +2264,16 @@ let lastPlayedSecondXP = -1;  // RIÊNG cho Xuất Phát
        function endT() { 
     clearInterval(timer); 
     
-    // XÓA ALERT NÀY - KHÔNG HIỆN THÔNG BÁO
+    console.log(`=== ENDT CALLED ===`);
+    console.log(`curP trước khi tăng: ${curP} - ${players[curP]?.name}`);
+    
+    // XÓA ALERT NÀY - KHÔNG HIỂN THỊ THÔNG BÁO
     // alert("Hết lượt của " + players[curP].name); 
     
     // CHUYỂN SANG THÍ SINH TIẾP THEO
     curP++;
+    
+    console.log(`curP sau khi tăng: ${curP} - ${players[curP]?.name}`);
     
     // Nếu đã thi hết 4 thí sinh
     if (curP >= 4) {
@@ -2294,10 +2281,12 @@ let lastPlayedSecondXP = -1;  // RIÊNG cho Xuất Phát
         // alert("Vòng XUẤT PHÁT đã kết thúc!");
         showS('screen-menu');
         curP = 0; // Reset về đầu cho lần chơi sau
+        console.log(`Reset curP về 0 vì hết 4 thí sinh`);
         return;
     }
     
     // Hiển thị màn hình chọn bộ đề cho thí sinh tiếp theo
+    console.log(`Hiển thị màn hình chọn bộ đề cho thí sinh ${curP}: ${players[curP]?.name}`);
     showXuatPhatMenu();
 }
 
@@ -2543,15 +2532,14 @@ function selectKeywordHint() {
                     lastPlayedSecondVS = t;
                 }
                 
-                if(t <= 0) {
+                if (t <= 0) {
                     clearInterval(timer);
                     if (isSocketConnected) endRoundForPlayers();
                     
                     // PHÁT ÂM HẾT GIỜ
                     playTimeUpSound();
                     
-                    // TỰ ĐỘNG HIỂN THỊ ĐÁP ÁN KHI HẾT GIỜ
-                    showResultVS();
+                    showAnswerVQ();
                 }
             }, 1000);
         }
@@ -3433,7 +3421,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ==================== TRANG KẾT QUẢ CUỐI CÙNG ====================
     
-    // HÀM HIỆN TRANG KẾT QUẢ
+    // HÀM HIỂN THỊ TRANG KẾT QUẢ
     function showKetQua() {
         console.log("Hiển thị trang kết quả...");
         
@@ -3835,13 +3823,11 @@ function getVinhQuangRule() {
     <div style="background: white; padding: 25px; border-radius: 15px; width: 90%; max-width: 500px;">
         <h3 style="color: var(--la-sen); margin-top: 0;">🔑 Cấu hình Google Gemini API</h3>
         <p style="color: #666; font-size: 14px;">
-            1. Truy cập: <a href="https://makersuite.google.com/app/apikey" target="_blank">makersuite.google.com/app/apikey</a><br>
-            2. Đăng nhập bằng Google<br>
-            3. Tạo API Key mới (miễn phí)<br>
-            4. Copy và dán vào đây
+            1. Truy cập: <a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a><br>
+            2. Đăng ký tài khoản Groq (miễn phí, không cần thẻ)\n3. Tạo API Key mới\n4. Quay lại nhập key vào ô bên dưới
         </p>
-        <input type="password" id="api-key-input" placeholder="Nhập Google Gemini API Key..." 
-               style="width: 100%; padding: 12px; margin: 15px 0; border: 2px solid #ddd; border-radius: 8px; font-size: 16px;">
+         <input type="password" id="api-key-input" placeholder="Nhập Groq API Key..." 
+             style="width: 100%; padding: 12px; margin: 15px 0; border: 2px solid #ddd; border-radius: 8px; font-size: 16px;">
         <div style="display: flex; gap: 10px; justify-content: flex-end;">
             <button onclick="hideAPIKeyConfig()" style="padding: 10px 20px; background: #ccc; border: none; border-radius: 8px; cursor: pointer;">Hủy</button>
             <button onclick="saveAPIKey()" style="padding: 10px 20px; background: var(--la-sen); color: white; border: none; border-radius: 8px; cursor: pointer;">Lưu Key</button>

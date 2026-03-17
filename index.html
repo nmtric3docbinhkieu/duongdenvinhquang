@@ -2138,50 +2138,18 @@ let lastPlayedSecondXP = -1;  // RIÊNG cho Xuất Phát
     const selectedSource = document.querySelector('input[name="questionSource"]:checked');
     questionSource = selectedSource ? selectedSource.value : 'manual';
     
-    // 3. Hiển thị thông báo
-    const statusDiv = document.getElementById('ai-status');
-    if (statusDiv) {
-        statusDiv.style.display = 'block';
-        if (questionSource === 'ai') {
-            statusDiv.innerHTML = '<small style="color: var(--vang-nhuy);">🔄 Đang chuẩn bị câu hỏi...</small>';
-        } else {
-            statusDiv.innerHTML = '<small style="color: #81C784;">✅ Dùng bộ câu hỏi tự soạn</small>';
-        }
-    }
-    
-    // 4. Tải API Key từ localStorage
-    const savedKey = localStorage.getItem('gemini_api_key');
-    if (savedKey) {
-        aiApiKey = savedKey;
-    }
-    
-    // 5. Khởi tạo câu hỏi và kiểm tra trạng thái API
+    // 3. Khởi tạo câu hỏi và kiểm tra trạng thái API
     setTimeout(() => {
         initializeQuestions(questionSource).then(() => {
             renderTopBar(); 
             showWelcomeScreen();
             document.getElementById('topBar').classList.remove('hidden');
-            
-            // Tự động kiểm tra trạng thái API sau khi khởi tạo xong
-            setTimeout(() => {
-                if (questionSource === 'ai') {
-                    checkAPIStatus();
-                }
-            }, 1000);
         }).catch(error => {
-            console.error("Lỗi khởi tạo câu hỏi:", error);
             // Dùng bộ backup nếu có lỗi
             window.allData = backupQuestions;
             renderTopBar(); 
             showWelcomeScreen();
             document.getElementById('topBar').classList.remove('hidden');
-            
-            if (statusDiv) {
-                statusDiv.innerHTML = '<small style="color: var(--hong-sen);">⚠️ Lỗi khởi tạo. Đã dùng bộ backup.</small>';
-                setTimeout(() => {
-                    statusDiv.style.display = 'none';
-                }, 2000);
-            }
         });
     }, 500);
 }

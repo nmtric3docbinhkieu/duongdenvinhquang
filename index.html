@@ -1676,7 +1676,7 @@ async function initializeQuestions(source) {
     
     // Nếu chọn AI nhưng chưa có API Key
     if (!aiApiKey) {
-        const userChoice = confirm("⚠️ Bạn chọn 'Bộ câu hỏi tự động' nhưng chưa cấu hình API Key.\n\n📋 HƯỚNG DẪN:\n1. Vào https://console.groq.com/keys\n2. Đăng ký tài khoản Groq (miễn phí, không cần thẻ)\n3. Tạo API Key mới\n\n📝 Bạn có muốn nhập API Key ngay bây giờ?\n• OK: Mở ô nhập API Key\n• Cancel: Quay lại chọn bộ câu hỏi tự soạn");
+        const userChoice = confirm("⚠️ Bạn chọn 'Bộ câu hỏi tự động' nhưng chưa cấu hình API Key.\n\n📋 HƯỚNG DẪN:\n1. Vào https://console.groq.com/keys\n2. Đăng ký tài khoản Groq (miễn phí, không cần thẻ)\n3. Tạo API Key mới\n4. Quay lại nhập key vào ô bên dưới\n\n📝 Bạn có muốn nhập API Key ngay bây giờ?\n• OK: Mở ô nhập API Key\n• Cancel: Quay lại chọn bộ câu hỏi tự soạn");
         
         if (userChoice) {
             // Mở popup nhập API Key
@@ -1687,13 +1687,6 @@ async function initializeQuestions(source) {
             questionSource = 'manual';
             document.getElementById('source-manual').checked = true;
             showWelcomeScreen();
-            
-            // Cập nhật trạng thái
-            const apiStatusEl = document.getElementById('api-status');
-            const questionsStatusEl = document.getElementById('questions-status');
-            const infoDetailsEl = document.getElementById('info-details');
-            
-            if (apiStatusEl) apiStatusEl.innerHTML = '<span style="color: #e74c3c;">❌ Chưa có API Key</span>';
             if (questionsStatusEl) questionsStatusEl.innerHTML = '<span style="color: #e74c3c;">Cần API Key</span>';
             if (infoDetailsEl) infoDetailsEl.innerHTML = '⚠️ Cần cấu hình API Key để dùng câu hỏi AI<br>🔑 Vào https://console.groq.com/keys để tạo key mới<br>📝 Hoặc chọn "Bộ câu hỏi tự soạn" để dùng ngay';
             
@@ -1830,19 +1823,27 @@ function saveAPIKey() {
     if (key) {
         aiApiKey = key;
         localStorage.setItem('groq_api_key', key);
-        alert('✅ Đã lưu Groq API Key thành công!');
+        alert(' Đã lưu Groq API Key thành công!');
         hideAPIKeyConfig();
         
         // Thử lại tạo câu hỏi AI với key mới
         initializeQuestions('ai').then(() => {
-            // Nếu thành công, cập nhật giao diện
+            // Nếu thành công, cập nhật giao diện và bắt đầu game
             const aiRadio = document.getElementById('source-ai');
             if (aiRadio) aiRadio.checked = true;
+            
+            // Gọi showWelcomeScreen() để bắt đầu game
+            if (window.allData && Object.keys(window.allData).length > 0) {
+                renderTopBar();
+                showWelcomeScreen();
+                document.getElementById('topBar').classList.remove('hidden');
+            }
         }).catch(error => {
             console.error("Lỗi khi thử lại với key mới:", error);
+            alert(' Lỗi khi tạo câu hỏi AI. Vui lòng thử lại.');
         });
     } else {
-        alert('⚠️ Vui lòng nhập Groq API Key');
+        alert(' Vui lòng nhập Groq API Key');
     }
 }
 
@@ -2199,19 +2200,32 @@ let lastPlayedSecondXP = -1;  // RIÊNG cho Xuất Phát
     const selectedSource = document.querySelector('input[name="questionSource"]:checked');
     questionSource = selectedSource ? selectedSource.value : 'manual';
     
-    // 3. Khởi tạo câu hỏi và kiểm tra trạng thái API
+    // 3. Kiểm tra xem đã có câu hỏi chưa
     setTimeout(() => {
-        initializeQuestions(questionSource).then(() => {
-            renderTopBar(); 
+        if (window.allData && Object.keys(window.allData).length > 0) {
+            // Đã có câu hỏi rồi, đi thẳng vào game
+            console.log("✅ Đã có câu hỏi sẵn, bắt đầu game ngay");
+            renderTopBar();
             showWelcomeScreen();
             document.getElementById('topBar').classList.remove('hidden');
-        }).catch(error => {
-            // Dùng bộ backup nếu có lỗi
-            window.allData = backupQuestions;
-            renderTopBar(); 
-            showWelcomeScreen();
-            document.getElementById('topBar').classList.remove('hidden');
-        });
+        } else {
+            // Chưa có câu hỏi, cần khởi tạo
+            console.log("📝 Chưa có câu hỏi, đang khởi tạo...");
+            initializeQuestions(questionSource).then(() => {
+                // Chỉ gọi showWelcomeScreen() nếu có API key hoặc người dùng chọn manual
+                if (questionSource === 'manual' || aiApiKey) {
+                    renderTopBar();
+                    showWelcomeScreen();
+                    document.getElementById('topBar').classList.remove('hidden');
+                }
+            }).catch(error => {
+                // Dùng bộ backup nếu có lỗi
+                window.allData = backupQuestions;
+                renderTopBar();
+                showWelcomeScreen();
+                document.getElementById('topBar').classList.remove('hidden');
+            });
+        }
     }, 500);
 }
 

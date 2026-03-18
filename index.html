@@ -1134,7 +1134,7 @@
                         <div class="option-content">
                             <div class="option-title">🤖 Bộ câu hỏi tự động (AI)</div>
                             <div class="option-description">
-                                Tự động tạo 40 câu hỏi (4 bộ × 10 câu) theo 10 môn học GDPT 2016 - Cần API Key Groq
+                                Tự động tạo bộ câu hỏi theo 10 môn học GDPT 2016 - Cần API Key Groq
                             </div>
                         </div>
                     </label>
@@ -1676,21 +1676,27 @@ async function initializeQuestions(source) {
     
     // Nếu chọn AI nhưng chưa có API Key
     if (!aiApiKey) {
-        alert("⚠️ Bạn chọn 'Bộ câu hỏi tự động' nhưng chưa cấu hình API Key.\n\n📋 HƯỚNG DẪN:\n1. Vào https://console.groq.com/keys\n2. Đăng ký tài khoản Groq (miễn phí, không cần thẻ)\n3. Tạo API Key mới\n4. Quay lại nhập key vào ô bên dưới\n\n🎯 Hệ thống sẽ tạo 40 câu hỏi (4 bộ đề × 10 câu) theo 10 môn học GDPT 2016");
-        // Hiển thị ô nhập key
-        const key = prompt("🔑 Nhập Groq API Key (để trống nếu muốn dùng bộ tự soạn):", "");
-        if (key && key.trim() !== '') {
-            aiApiKey = key.trim();
-            // Lưu để lần sau không phải nhập lại
-            try { localStorage.setItem('groq_api_key', aiApiKey); } catch (e) {}
-            // Thử lại với key mới
-            return initializeQuestions('ai');
+        const userChoice = confirm("⚠️ Bạn chọn 'Bộ câu hỏi tự động' nhưng chưa cấu hình API Key.\n\n📋 HƯỚNG DẪN:\n1. Vào https://console.groq.com/keys\n2. Đăng ký tài khoản Groq (miễn phí, không cần thẻ)\n3. Tạo API Key mới\n\n📝 Bạn có muốn nhập API Key ngay bây giờ?\n• OK: Mở ô nhập API Key\n• Cancel: Quay lại chọn bộ câu hỏi tự soạn");
+        
+        if (userChoice) {
+            // Mở popup nhập API Key
+            showAPIKeyConfig();
+            return Promise.resolve();
         } else {
-            // Chuyển sang dùng bộ tự soạn
+            // Reset về trạng thái ban đầu và quay về màn hình chính
             questionSource = 'manual';
             document.getElementById('source-manual').checked = true;
-            window.allData = backupQuestions;
-            console.log("🔄 Chuyển sang dùng bộ tự soạn");
+            showWelcomeScreen();
+            
+            // Cập nhật trạng thái
+            const apiStatusEl = document.getElementById('api-status');
+            const questionsStatusEl = document.getElementById('questions-status');
+            const infoDetailsEl = document.getElementById('info-details');
+            
+            if (apiStatusEl) apiStatusEl.innerHTML = '<span style="color: #e74c3c;">❌ Chưa có API Key</span>';
+            if (questionsStatusEl) questionsStatusEl.innerHTML = '<span style="color: #e74c3c;">Cần API Key</span>';
+            if (infoDetailsEl) infoDetailsEl.innerHTML = '⚠️ Cần cấu hình API Key để dùng câu hỏi AI<br>🔑 Vào https://console.groq.com/keys để tạo key mới<br>📝 Hoặc chọn "Bộ câu hỏi tự soạn" để dùng ngay';
+            
             return Promise.resolve();
         }
     }
@@ -1751,15 +1757,61 @@ async function initializeQuestions(source) {
     } catch (error) {
         console.error("❌ Lỗi AI:", error);
         
-        // Dùng bộ tự soạn làm backup
-        window.allData = backupQuestions;
-        questionSource = 'manual';
-        document.getElementById('source-manual').checked = true;
-        
-        // Cập nhật trạng thái lỗi
-        if (apiStatusEl) apiStatusEl.innerHTML = '<span style="color: #e74c3c;"> Lỗi AI</span>';
-        if (questionsStatusEl) questionsStatusEl.innerHTML = '<span style="color: #e74c3c;"> Dùng bộ dự phòng</span>';
-        if (infoDetailsEl) infoDetailsEl.innerHTML = ` Lỗi tạo câu hỏi AI: ${error.message}<br> Đã chuyển sang bộ câu hỏi tự soạn<br> 40 câu hỏi có sẵn<br> Đảm bảo game hoạt động bình thường`;
+        // Kiểm tra nếu là lỗi API key không hợp lệ
+        if (error.message.includes('401') || error.message.includes('Unauthorized') || 
+            error.message.includes('API key') || error.message.includes('authentication')) {
+            
+            // Xóa API key không hợp lệ
+            aiApiKey = '';
+            try { localStorage.removeItem('groq_api_key'); } catch (e) {}
+            
+            // Hiển thị thông báo lỗi rõ ràng
+            const userChoice = confirm(`❌ LỖI API KEY KHÔNG HỢP LỆ!\n\n🔍 Nguyên nhân: ${error.message}\n\n📋 Hướng dẫn khắc phục:\n1. Kiểm tra lại API key có đúng không\n2. Vào https://console.groq.com/keys để tạo key mới\n3. Đảm bảo key còn hiệu lực\n\n📝 Bạn có muốn nhập API Key mới ngay bây giờ?\n• OK: Mở ô nhập API Key mới\n• Cancel: Quay lại màn hình chính`);
+            
+            if (userChoice) {
+                // Mở popup nhập API Key mới
+                showAPIKeyConfig();
+                return;
+            }
+            
+            // Reset về trạng thái ban đầu
+            questionSource = 'manual';
+            document.getElementById('source-manual').checked = true;
+            
+            // Cập nhật trạng thái lỗi
+            if (apiStatusEl) apiStatusEl.innerHTML = '<span style="color: #e74c3c;">❌ API Key lỗi</span>';
+            if (questionsStatusEl) questionsStatusEl.innerHTML = '<span style="color: #e74c3c;">Cần cấu hình lại</span>';
+            if (infoDetailsEl) infoDetailsEl.innerHTML = '❌ API Key không hợp lệ<br>Vui lòng kiểm tra và cấu hình lại API Key<br>🔑 Vào https://console.groq.com/keys để tạo key mới';
+            
+            // Quay về màn hình chính
+            showWelcomeScreen();
+            
+        } else {
+            // Lỗi khác - hiển thị thông báo và hỏi người dùng
+            const userChoice = confirm(`❌ LỖI TẠO CÂU HỎI AI!\n\n🔍 Nguyên nhân: ${error.message}\n\n📝 Bạn có muốn:\n• OK: Quay lại dùng bộ câu hỏi tự soạn\n• Cancel: Thử lại với AI`);
+            
+            if (userChoice) {
+                // Người dùng chọn dùng bộ tự soạn
+                window.allData = backupQuestions;
+                questionSource = 'manual';
+                document.getElementById('source-manual').checked = true;
+                
+                // Cập nhật trạng thái
+                if (apiStatusEl) apiStatusEl.innerHTML = '<span style="color: #f39c12;">🔄 Dùng bộ dự phòng</span>';
+                if (questionsStatusEl) questionsStatusEl.innerHTML = '<span style="color: #27ae60;">✅ Đã có 40 câu hỏi</span>';
+                if (infoDetailsEl) infoDetailsEl.innerHTML = '📝 Đã chuyển sang bộ câu hỏi tự soạn<br>📚 4 bộ đề × 10 câu hỏi<br>🎯 Môn học đa dạng theo GDPT 2016';
+            } else {
+                // Người dùng muốn thử lại - reset về màn hình chính
+                questionSource = 'manual';
+                document.getElementById('source-manual').checked = true;
+                
+                if (apiStatusEl) apiStatusEl.innerHTML = '<span style="color: #e74c3c;">❌ Lỗi AI</span>';
+                if (questionsStatusEl) questionsStatusEl.innerHTML = '<span style="color: #e74c3c;">Thử lại</span>';
+                if (infoDetailsEl) infoDetailsEl.innerHTML = `❌ Lỗi: ${error.message}<br>🔄 Vui lòng thử lại hoặc chọn bộ câu hỏi tự soạn`;
+                
+                showWelcomeScreen();
+            }
+        }
     }
 }
 
@@ -1780,8 +1832,15 @@ function saveAPIKey() {
         localStorage.setItem('groq_api_key', key);
         alert('✅ Đã lưu Groq API Key thành công!');
         hideAPIKeyConfig();
-        // Kiểm tra lại trạng thái API sau khi lưu
-        setTimeout(() => checkAPIStatus(), 500);
+        
+        // Thử lại tạo câu hỏi AI với key mới
+        initializeQuestions('ai').then(() => {
+            // Nếu thành công, cập nhật giao diện
+            const aiRadio = document.getElementById('source-ai');
+            if (aiRadio) aiRadio.checked = true;
+        }).catch(error => {
+            console.error("Lỗi khi thử lại với key mới:", error);
+        });
     } else {
         alert('⚠️ Vui lòng nhập Groq API Key');
     }
@@ -1941,51 +2000,53 @@ function extractFirstJsonObject(text) {
 
 // Hàm gọi Groq API (Llama 3) - TẠO CÂU HỎI VÒNG KHỞI ĐỘNG
 async function generateAIGroqLlama3() {
-    const prompt = `Hãy tạo 40 câu hỏi trắc nghiệm cho vòng khởi động gameshow "Đường Đến Vinh Quang" theo chương trình giáo dục phổ thông 2016.
+    const prompt = `Bạn là chuyên gia biên soạn đề thi trắc nghiệm THPT Việt Nam với hơn 10 năm kinh nghiệm. Hãy tạo 40 câu hỏi CHẤT LƯỢNG CAO cho vòng khởi động gameshow "Đường Đến Vinh Quang" theo chương trình GDPT 2016.
 
-YÊU CẦU QUAN TRỌNG:
+YÊU CẦU KỸ THUẬT:
 1. Chia thành 4 bộ đề, mỗi bộ đúng 10 câu hỏi
-2. Mỗi câu hỏi thuộc 1 môn học khác nhau (10 môn học/bộ đề):
-   - Toán học
-   - Vật lí
-   - Hóa học  
-   - Sinh học
-   - Ngữ văn
-   - Lịch sử
-   - Địa lí
-   - Giáo dục công dân
-   - Tiếng Anh
-   - Tin học
+2. Mỗi bộ đề có đủ 10 môn học: Toán, Vật lí, Hóa học, Sinh học, Ngữ văn, Lịch sử, Địa lí, GDCD, Tiếng Anh, Tin học
 
-3. QUAN TRỌNG - CẤU TRÚC MỖI CÂU:
-   - "q": Câu hỏi rõ ràng, súc tích
-   - "a": ĐÁP ÁN LÀ CÂU TRẢ LỜI ĐÚNG, không lặp lại câu hỏi
-   - Ví dụ SAI: {"q": "Viết lại câu sau theo đúng từ ngữ: sự tương tác giữa con người và môi trường", "a": "sự tương tác giữa con người và môi trường"}
-   - Ví dụ ĐÚNG: {"q": "Viết lại câu sau theo đúng từ ngữ: sự tương tác giữa con người và môi trường", "a": "quan hệ giữa con người và môi trường"}
+YÊU CẦU NỘI DUNG:
+3. Kiến thức PHẢI ĐÚNG 100% - không có thông tin sai, không có câu hỏi mơ hồ
+4. Câu hỏi phải RÕ RÀNG, SÚC TÍCH, không dùng từ ngữ khó hiểu
+5. Độ khó phù hợp học sinh THPT - không quá dễ, không quá khó
+6. Kiến thức phải cập nhật theo sách giáo khoa hiện hành
 
-4. Định dạng JSON chính xác:
+CẤU TRÚC MỖI CÂU HỎI:
+- "q": Câu hỏi ngắn gọn, rõ ràng, không gây hiểu lầm
+- "a": ĐÁP ÁN ĐÚNG - là nội dung trả lời, không lặp lại câu hỏi
+
+VÍ DỤ CÁCH LÀM ĐÚNG:
+- SAI: {"q": "2+2 bằng bao nhiêu?", "a": "2+2 bằng 4"}
+- ĐÚNG: {"q": "2+2 bằng bao nhiêu?", "a": "4"}
+
+- SAI: {"q": "Thủ đô Việt Nam là gì?", "a": "Thủ đô Việt Nam là Hà Nội"}
+- ĐÚNG: {"q": "Thủ đô Việt Nam là gì?", "a": "Hà Nội"}
+
+ĐỊNH DẠNG JSON YÊU CẦU:
 {
   "1": [
-    {"q": "Câu hỏi Toán học?", "a": "Đáp án đúng là câu trả lời"},
-    {"q": "Câu hỏi Vật lí?", "a": "Đáp án đúng là câu trả lời"},
-    {"q": "Câu hỏi Hóa học?", "a": "Đáp án đúng là câu trả lời"},
-    {"q": "Câu hỏi Sinh học?", "a": "Đáp án đúng là câu trả lời"},
-    {"q": "Câu hỏi Ngữ văn?", "a": "Đáp án đúng là câu trả lời"},
-    {"q": "Câu hỏi Lịch sử?", "a": "Đáp án đúng là câu trả lời"},
-    {"q": "Câu hỏi Địa lí?", "a": "Đáp án đúng là câu trả lời"},
-    {"q": "Câu hỏi GDCD?", "a": "Đáp án đúng là câu trả lời"},
-    {"q": "Câu hỏi Tiếng Anh?", "a": "Đáp án đúng là câu trả lời"},
-    {"q": "Câu hỏi Tin học?", "a": "Đáp án đúng là câu trả lời"}
+    {"q": "Câu hỏi Toán học cụ thể?", "a": "Đáp án đúng"},
+    {"q": "Câu hỏi Vật lí cụ thể?", "a": "Đáp án đúng"},
+    {"q": "Câu hỏi Hóa học cụ thể?", "a": "Đáp án đúng"},
+    {"q": "Câu hỏi Sinh học cụ thể?", "a": "Đáp án đúng"},
+    {"q": "Câu hỏi Ngữ văn cụ thể?", "a": "Đáp án đúng"},
+    {"q": "Câu hỏi Lịch sử cụ thể?", "a": "Đáp án đúng"},
+    {"q": "Câu hỏi Địa lí cụ thể?", "a": "Đáp án đúng"},
+    {"q": "Câu hỏi GDCD cụ thể?", "a": "Đáp án đúng"},
+    {"q": "Câu hỏi Tiếng Anh cụ thể?", "a": "Đáp án đúng"},
+    {"q": "Câu hỏi Tin học cụ thể?", "a": "Đáp án đúng"}
   ],
   "2": [...],
   "3": [...],
   "4": [...]
 }
 
-5. Độ khó: vừa phải, kiến thức cơ bản
-6. Đáp án phải ngắn gọn, chính xác, không lặp lại câu hỏi
-
-QUAN TRỌNG: Chỉ trả về JSON thuần, không markdown, không giải thích, không ký tự đặc biệt.`;
+QUAN TRỌNG:
+- KIỂM TRA KIẾN THỨC TRƯỚC KHI VIẾT
+- Đáp án phải CHÍNH XÁC TUYỆT ĐỐI
+- Chỉ trả về JSON thuần, không markdown, không giải thích
+- Không tạo câu hỏi về thông tin gây tranh cãi hoặc chưa được xác định`;
 
     try {
         if (!aiApiKey) throw new Error("Chưa có API Key");
@@ -1996,9 +2057,9 @@ QUAN TRỌNG: Chỉ trả về JSON thuần, không markdown, không giải thí
                 "Authorization": `Bearer ${aiApiKey}`
             },
             body: JSON.stringify({
-                model: "llama-3.1-8b-instant",
+                model: "llama-3.3-70b-versatile",
                 messages: [
-                    { role: "system", content: "Bạn là chuyên gia biên soạn câu hỏi trắc nghiệm cho học sinh THPT Việt Nam theo chương trình GDPT 2016." },
+                    { role: "system", content: "Bạn là giáo viên THPT chuyên sâu với 15 năm kinh nghiệm biên soạn đề thi trắc nghiệm cho các kỳ thi quan trọng tại Việt Nam. Bạn am hiểu sâu sắc chương trình GDPT 2016 và luôn đảm bảo kiến thức chính xác tuyệt đối. Nhiệm vụ của bạn là tạo câu hỏi chất lượng cao, rõ ràng và phù hợp với trình độ học sinh." },
                     { role: "user", content: prompt }
                 ],
                 temperature: 0.7,

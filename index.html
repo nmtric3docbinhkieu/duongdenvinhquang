@@ -3353,16 +3353,50 @@ function endRoundForPlayers() {
     socket.emit('end_round', {});
 }
 
+// Function để lấy IP tự động
+async function getLocalIP() {
+    try {
+        // Cách 1: Thử lấy từ WebRTC
+        const pc = new RTCPeerConnection({iceServers: []});
+        pc.createDataChannel('');
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        
+        return new Promise((resolve) => {
+            pc.onicecandidate = (ice) => {
+                if (ice.candidate && ice.candidate.candidate) {
+                    const candidate = ice.candidate.candidate;
+                    const match = candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
+                    if (match && !match[1].startsWith('127.') && !match[1].startsWith('169.254.')) {
+                        resolve(match[1]);
+                        pc.close();
+                    }
+                }
+            };
+            
+            // Fallback sau 3 giây
+            setTimeout(() => {
+                pc.close();
+                resolve(window.location.hostname || 'localhost');
+            }, 3000);
+        });
+    } catch (error) {
+        console.log('Không thể lấy IP tự động:', error);
+        return window.location.hostname || 'localhost';
+    }
+}
+
 // Tạo QR Code cho thí sinh - PHIÊN BẢN CHẠY SERVER
-function generatePlayerQRCode(playerId) {
+async function generatePlayerQRCode(playerId) {
     console.log("=== ĐANG TẠO QR CODE CHO " + playerId + " ===");
     
-    // IP máy tính của bạn (từ http-server)
-    const serverIp = "192.168.91.80"; // ← IP HIỆN TẠI CỦA BẠN
+    // Lấy IP tự động
+    const serverIp = await getLocalIP();
     
     // URL cho điện thoại thí sinh
     const mobileUrl = `http://${serverIp}:3000/mobile.html?player=${playerId}`;
     
+    console.log("📱 IP tự động phát hiện:", serverIp);
     console.log("📱 Mobile URL cho thí sinh:", mobileUrl);
     
     // Tạo QR Code
@@ -3370,7 +3404,7 @@ function generatePlayerQRCode(playerId) {
 }
 
 // Hiển thị QR Code cho MC - PHIÊN BẢN DỄ NHÌN
-function showQRCodePanel() {
+async function showQRCodePanel() {
     console.log("=== BẮT ĐẦU HIỂN THỊ QR CODE ===");
     
     // Kiểm tra nếu đã có panel thì xóa đi
@@ -3417,8 +3451,8 @@ function showQRCodePanel() {
         
         console.log(`Tạo QR cho ${playerName} (${playerId})`);
         
-        // Gọi hàm tạo QR Code
-        const qrCodeUrl = generatePlayerQRCode(playerId);
+        // Gọi hàm tạo QR Code (async)
+        const qrCodeUrl = await generatePlayerQRCode(playerId);
         
         // Tạo container cho mỗi thí sinh
         const qrContainer = document.createElement('div');
@@ -4121,5 +4155,21 @@ function getVinhQuangRule() {
         </div>
     </div>
 </div>
+<script>
+// Tự động kiểm tra và khởi động server khi mở trang
+window.addEventListener('load', function() {
+    // Kiểm tra server có chạy không
+    fetch('http://localhost:3000')
+        .then(response => {
+            if (!response.ok) {
+                // Thông báo cho người dùng
+                alert('Server chưa chạy! Vui lòng chạy start.bat để khởi động server.');
+            }
+        })
+        .catch(() => {
+            alert('Server chưa chạy! Vui lòng chạy start.bat để khởi động server.');
+        });
+});
+</script>
 </body>
 </html>

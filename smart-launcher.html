@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Smart Launcher - Đường Đến Vinh Quang</title>
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #2E7D32 0%, #1b5e20 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+            text-align: center;
+            max-width: 500px;
+        }
+        h1 {
+            color: #2E7D32;
+            margin-bottom: 30px;
+        }
+        .btn {
+            background: #2E7D32;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s;
+        }
+        .btn:hover {
+            background: #1b5e20;
+            transform: translateY(-2px);
+        }
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #2E7D32;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧠 Smart Launcher</h1>
+        <h2>Đường Đến Vinh Quang - THPT Đốc Binh Kiều</h2>
+        
+        <div id="status" class="status info">
+            Đang kiểm tra hệ thống...
+        </div>
+        
+        <div id="main-controls">
+            <button id="start-btn" class="btn" onclick="startMainServer()">
+                🚀 Khởi động Server Chính
+            </button>
+            <button id="open-btn" class="btn" onclick="openMainApp()" disabled>
+                📱 Mở Giao Diện MC
+            </button>
+            <button class="btn" onclick="openMobile()">
+                📲 Mở Giao Diện Mobile
+            </button>
+        </div>
+        
+        <div style="margin-top: 30px; font-size: 14px; color: #666;">
+            <p><strong>Thông tin:</strong></p>
+            <p>Smart Server: <span id="smart-status">Đang kiểm tra...</span></p>
+            <p>Main Server: <span id="main-status">Đang kiểm tra...</span></p>
+        </div>
+    </div>
+
+    <script>
+        let socket = null;
+        let isMainServerRunning = false;
+
+        function connectSocket() {
+            socket = io('http://localhost:3001');
+            
+            socket.on('connect', () => {
+                console.log('Đã kết nối đến Smart Server');
+                updateStatus('Đã kết nối đến Smart Server', 'success');
+                document.getElementById('smart-status').textContent = 'Đang chạy';
+            });
+            
+            socket.on('disconnect', () => {
+                console.log('Mất kết nối Smart Server');
+                updateStatus('Mất kết nối Smart Server', 'error');
+                document.getElementById('smart-status').textContent = 'Mất kết nối';
+            });
+            
+            socket.on('status_update', (data) => {
+                isMainServerRunning = data.mainServerRunning;
+                updateMainServerStatus();
+            });
+            
+            socket.on('server_start_result', (result) => {
+                if (result.success) {
+                    updateStatus(result.message, 'success');
+                    setTimeout(() => {
+                        checkMainServer();
+                    }, 2000);
+                } else {
+                    updateStatus(result.message, 'error');
+                }
+                document.getElementById('start-btn').disabled = false;
+                document.getElementById('start-btn').innerHTML = '🚀 Khởi động Server Chính';
+            });
+        }
+
+        function updateStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = 'status ' + type;
+        }
+
+        function updateMainServerStatus() {
+            const mainStatus = document.getElementById('main-status');
+            const startBtn = document.getElementById('start-btn');
+            const openBtn = document.getElementById('open-btn');
+            
+            if (isMainServerRunning) {
+                mainStatus.textContent = 'Đang chạy';
+                mainStatus.style.color = 'green';
+                startBtn.disabled = true;
+                startBtn.innerHTML = '✅ Server đã chạy';
+                openBtn.disabled = false;
+                updateStatus('Server chính đã sẵn sàng!', 'success');
+            } else {
+                mainStatus.textContent = 'Chưa chạy';
+                mainStatus.style.color = 'red';
+                startBtn.disabled = false;
+                startBtn.innerHTML = '🚀 Khởi động Server Chính';
+                openBtn.disabled = true;
+            }
+        }
+
+        function startMainServer() {
+            if (!socket || !socket.connected) {
+                updateStatus('Chưa kết nối đến Smart Server', 'error');
+                return;
+            }
+            
+            document.getElementById('start-btn').disabled = true;
+            document.getElementById('start-btn').innerHTML = '<span class="loading"></span>Đang khởi động...';
+            updateStatus('Đang khởi động server chính...', 'info');
+            
+            socket.emit('start_main_server');
+        }
+
+        function openMainApp() {
+            window.open('http://localhost:3000', '_blank');
+        }
+
+        function openMobile() {
+            window.open('http://localhost:3000/mobile?player=F1', '_blank');
+        }
+
+        function checkMainServer() {
+            fetch('http://localhost:3000', { mode: 'no-cors' })
+                .then(() => {
+                    isMainServerRunning = true;
+                    updateMainServerStatus();
+                })
+                .catch(() => {
+                    isMainServerRunning = false;
+                    updateMainServerStatus();
+                });
+        }
+
+        // Khởi động khi tải trang
+        window.addEventListener('load', () => {
+            connectSocket();
+            setTimeout(checkMainServer, 1000);
+        });
+    </script>
+</body>
+</html>

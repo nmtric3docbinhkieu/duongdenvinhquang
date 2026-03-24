@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Đường Đến Vinh Quang - Launcher</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #2E7D32 0%, #1b5e20 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+            text-align: center;
+            max-width: 500px;
+        }
+        h1 {
+            color: #2E7D32;
+            margin-bottom: 30px;
+        }
+        .btn {
+            background: #2E7D32;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s;
+        }
+        .btn:hover {
+            background: #1b5e20;
+            transform: translateY(-2px);
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏆 Đường Đến Vinh Quang</h1>
+        <h2>THPT Đốc Binh Kiều</h2>
+        
+        <div id="status" class="status info">
+            Đang kiểm tra server...
+        </div>
+        
+        <button class="btn" onclick="startServer()">🚀 Khởi động Server</button>
+        <button class="btn" onclick="openApp()">📱 Mở Giao Diện MC</button>
+        <button class="btn" onclick="openMobile()">📲 Mở Giao Diện Mobile</button>
+        
+        <div style="margin-top: 30px; font-size: 14px; color: #666;">
+            <p><strong>Hướng dẫn:</strong></p>
+            <p>1. Nhấn "Khởi động Server" để chạy server</p>
+            <p>2. Chờ 3-5 giây cho server khởi động</p>
+            <p>3. Nhấn "Mở Giao Diện MC" để bắt đầu</p>
+        </div>
+    </div>
+
+    <script>
+        function checkServer() {
+            fetch('http://localhost:3000', { 
+                mode: 'no-cors',
+                cache: 'no-cache'
+            })
+                .then(response => {
+                    console.log('Response:', response);
+                    updateStatus('Server đã chạy sẵn!', 'success');
+                })
+                .catch(error => {
+                    console.log('Error:', error);
+                    // Thử cách khác
+                    fetch('http://localhost:3000/api/players')
+                        .then(response => {
+                            if (response.ok) {
+                                updateStatus('Server đã chạy sẵn!', 'success');
+                            } else {
+                                updateStatus('Server chưa chạy!', 'error');
+                            }
+                        })
+                        .catch(() => {
+                            updateStatus('Server chưa chạy!', 'error');
+                        });
+                });
+        }
+
+        function startServer() {
+            updateStatus('Đang khởi động server...', 'info');
+            
+            // Tạo một request để trigger batch file qua proxy
+            // Sử dụng WebSocket để kiểm tra và khởi động
+            const socket = io('http://localhost:3000');
+            
+            socket.on('connect', () => {
+                updateStatus('Server đã chạy sẵn!', 'success');
+                socket.disconnect();
+            });
+            
+            socket.on('connect_error', () => {
+                // Server chưa chạy, thử khởi động bằng cách khác
+                updateStatus('Đang khởi động server mới...', 'info');
+                
+                // Sử dụng fetch để kiểm tra lại sau 3 giây
+                setTimeout(() => {
+                    fetch('http://localhost:3000', { mode: 'no-cors' })
+                        .then(() => {
+                            updateStatus('Server đã khởi động thành công!', 'success');
+                        })
+                        .catch(() => {
+                            updateStatus('Vui lòng chạy start-server.bat thủ công', 'error');
+                        });
+                }, 3000);
+                
+                // Cách 1: Thử mở batch file (chỉ hoạt động trên một số trình duyệt)
+                try {
+                    window.open('file:///' + window.location.pathname.replace(/[^\\]*$/, 'start-server.bat'), '_blank');
+                } catch (e) {
+                    console.log('Không thể mở batch file từ trình duyệt');
+                }
+            });
+        }
+
+        function openApp() {
+            window.open('http://localhost:3000', '_blank');
+        }
+
+        function openMobile() {
+            window.open('http://localhost:3000/mobile?player=F1', '_blank');
+        }
+
+        function updateStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = 'status ' + type;
+        }
+
+        // Kiểm tra server khi tải trang
+        window.addEventListener('load', checkServer);
+
+        // Tự động kiểm tra lại mỗi 5 giây
+        setInterval(checkServer, 5000);
+    </script>
+</body>
+</html>
